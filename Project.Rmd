@@ -61,21 +61,27 @@ library(foreach)
 # rfParam <- expand.grid( mtry = round(sqrt(ncol( buildData ))), importance = TRUE )
 train_control <- trainControl(method="cv", number=3, savePredictions = TRUE)
 
-m_tree <- train(classe ~ ., data = buildData, method = 'rf', 
+m_tree <- train(classe ~ ., data = training, method = 'rf', 
 	prox=TRUE, trControl=train_control)
 ```
 
 ```{r gbmtesting}
-p_gbm <- predict(m_gbm,testing)
-print(confusionMatrix(p_gbm, testing$classe))
+p_tree <- predict(m_tree,testing)
+print(confusionMatrix(p_tree, testing$classe))
 
 ```
 
 We managed to get 99,71% accuracy ! Let's try on validation set!
 
+```{r gbmvalidation}
+v_tree <- predict(m_tree,validation)
+print(confusionMatrix(v_tree, validation$classe))
+
+```
+
 ## Final test with 20 test cases
 
-```{r validation}
-final.test <- predict( m_gbm, tidy.test )
-print(final.test)
+```{r testcase}
+final.pred <- predict( m_tree, raw.test )
+print(final.pred)
 ```
