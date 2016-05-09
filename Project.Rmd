@@ -1,0 +1,81 @@
+---
+title: "Course Project"
+author: "Fernando Braga"
+date: "8 de maio de 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+Wearable devices made possible to collect data about personal activity. Human Activity Recognition project (held on <http://groupware.les.inf.puc-rio.br/har>) released a dataset on Weight Lifting observations, focusing on the quality of the exercise itself, and based on these observations we'll try to predict whether an individual did well on the exercises.
+
+## Analysis
+
+#### Loading and Cleaning Data
+
+```{r rawdata}
+rm(list=ls())
+library(ggplot2);library(caret)
+set.seed(34857)
+
+raw.train <- read.csv('pml-training.csv', na.strings = c("","NA"))
+raw.test  <- read.csv('pml-testing.csv')
+```
+
+Observing raw data, there are multiple columns that are summarizing data. They only have data when new_window variable is yes. The following code will remove this columns so we can get tidy data. Near Zero columns will also be removed.
+
+```{r tidydata}
+
+tidy.train <- raw.train[!colSums(is.na(raw.train)) > nrow(raw.train)* 0.95 ]
+tidy.test  <- raw.test [!colSums(is.na(raw.test )) > nrow(raw.test )* 0.95 ]
+
+x <- nearZeroVar(tidy.train, saveMetrics=TRUE)
+x$varname <- rownames(x)
+tidy.train <- tidy.train[,colnames(tidy.train)!=c(x[x$nzv == TRUE,]$varname)]
+
+rm(x)
+```
+
+We'll set 30% of the data aside for validation purposes.
+
+```{r splittingsets}
+inBuild    <- createDataPartition(y=tidy.train$classe,p=0.7,list=FALSE)
+buildData  <- tidy.train[inBuild,]
+validation <- tidy.train[-inBuild,]
+
+inTrain  <- createDataPartition(y=buildData$classe,p=0.7,list=FALSE)
+training <- buildData[inTrain,]
+testing  <- buildData[-inTrain,]
+```
+
+## Training with gbm
+
+```{r rftraining}
+library(randomForest)
+library(foreach)
+
+# rfParam <- expand.grid( mtry = round(sqrt(ncol( buildData ))), importance = TRUE )
+train_control <- trainControl(method="cv", number=3, savePredictions = TRUE)
+
+m_tree <- train(classe ~ ., data = buildData, method = 'rf', 
+	prox=TRUE, trControl=train_control)
+```
+
+```{r gbmtesting}
+p_gbm <- predict(m_gbm,testing)
+print(confusionMatrix(p_gbm, testing$classe))
+
+```
+
+We managed to get 99,71% accuracy ! Let's try on validation set!
+
+## Final test with 20 test cases
+
+```{r validation}
+final.test <- predict( m_gbm, tidy.test )
+print(final.test)
+```
