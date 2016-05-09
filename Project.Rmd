@@ -33,11 +33,17 @@ Observing raw data, there are multiple columns that are summarizing data. They o
 tidy.train <- raw.train[!colSums(is.na(raw.train)) > nrow(raw.train)* 0.95 ]
 tidy.test  <- raw.test [!colSums(is.na(raw.test )) > nrow(raw.test )* 0.95 ]
 
-x <- nearZeroVar(tidy.train, saveMetrics=TRUE)
-x$varname <- rownames(x)
-tidy.train <- tidy.train[,colnames(tidy.train)!=c(x[x$nzv == TRUE,]$varname)]
+columns_not_needed <- c("X","user_name","raw_timestamp_part_1","raw_timestamp_part_2","cvtd_timestamp","new_window","num_window", "classe", "problem_id" )
+features <- names( tidy.train ) [!(names( tidy.train ) %in% columns_not_needed)]
 
-rm(x)
+tidy.train <- tidy.train[ ,c( features, "classe") ]
+tidy.test  <- tidy.test [ ,c( features, "problem_id") ]
+
+# x <- nearZeroVar(tidy.train, saveMetrics=TRUE)
+# x$varname <- rownames(x)
+# tidy.train <- tidy.train[,colnames(tidy.train)!=c(x[x$nzv == TRUE,]$varname)]
+# 
+# rm(x)
 ```
 
 We'll set 30% of the data aside for validation purposes.
@@ -52,32 +58,45 @@ training <- buildData[inTrain,]
 testing  <- buildData[-inTrain,]
 ```
 
-## Training with gbm
+## Training 
 
 ```{r rftraining}
-library(randomForest)
-library(foreach)
+invisible(library(randomForest))
+invisible(library(foreach))
 
+# cluster <- makeCluster(detectCores() - 1)
+# cluster <- makeCluster( 2 )
+# setDefaultCluster( cluster )
 # rfParam <- expand.grid( mtry = round(sqrt(ncol( buildData ))), importance = TRUE )
-train_control <- trainControl(method="cv", number=3, savePredictions = TRUE)
+train_control <- trainControl(method="cv", number=10, allowParallel = TRUE)
 
+start_time <- proc.time()
 m_tree <- train(classe ~ ., data = training, method = 'rf', 
-	prox=TRUE, trControl=train_control)
+	trControl=train_control)
+print( proc.time() - start_time)
+
+# stopCluster(cluster)
 ```
 
+```{r plot, echo=FALSE}
+plot(m_tree)
+```
 ```{r gbmtesting}
 p_tree <- predict(m_tree,testing)
 print(confusionMatrix(p_tree, testing$classe))
+print(confusionMatrix(p_tree, testing$classe)$overall[ 'Accuracy' ])
 
 ```
 
-We managed to get 99,71% accuracy ! Let's try on validation set!
+We managed to get 99% accuracy ! Let's try on validation set!
 
 ```{r gbmvalidation}
 v_tree <- predict(m_tree,validation)
 print(confusionMatrix(v_tree, validation$classe))
-
+print(confusionMatrix(v_tree, validation$classe)$overall[ 'Accuracy' ])
 ```
+
+99% accuracy on validation set! Let's do the Quiz!!
 
 ## Final test with 20 test cases
 
